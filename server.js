@@ -7,8 +7,9 @@ const multer = require("multer");
 const path = require("path");
 const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
-const bcrypt = require("bcryptjs");
-
+//const bcrypt = require("bcryptjs");
+const fs = require("fs");
+const adminRoutes = require("./routes/admin");
 const Report = require("./models/Report");
 
 const app = express();
@@ -17,6 +18,9 @@ const app = express();
 app.use(cors({
   origin: "*"
 }));
+
+//app.use("/api/admin", adminRoutes);
+
 
 app.use(express.json());
 
@@ -30,11 +34,7 @@ mongoose
     .then(() => console.log("MongoDB connected using Mongoose"))
     .catch((err) => console.error("MongoDB Connection error:", err));
 
-
-
-
-const fs = require("fs");
-
+// uploads folder check
 if (!fs.existsSync("uploads")) {
   fs.mkdirSync("uploads");
 }
@@ -102,30 +102,32 @@ const authAdmin = (req,res,next) => {
     const authHeader = req.headers.authorization;
 
     if(!authHeader){
-        return res.status(403).json({message:"Token Missing"});
+        return res.status(401).json({message:"Token Missing"});
     }
     try{
         const token = authHeader.split(" ")[1];
         const decoded =jwt.verify(token, process.env.JWT_SECRET);
 
-        if(decoded.role !== "admin"){
+        /*if(decoded.role !== "admin"){
             return res.status(403).json({message:"Unauthorised"});
         }
-    
-
+            next();*/
+    req.adminId = decoded.id;
     next();
-}catch(err){
-   
-  return res.status(401).json({message:"Invalid Token"});
-}
+  } catch (err) {
+    return res.status(401).json({ message: "Invalid token" });
+  }
 };
+
 //---Routes
 app.get("/", (req,res) => {
     res.send("Spot The Fake Backend is running...");
 });
 
+
+app.use("/api/admin", adminRoutes);
 //Admin login
-app.post("/api/admin/login",(req,res) => {
+/*app.post("/api/admin/login",(req,res) => {
     const {email, password} = req.body;
     
     if(email !== process.env.ADMIN_EMAIL || password !== process.env.ADMIN_PASSWORD){
@@ -188,9 +190,71 @@ app.get("/api/reports", authAdmin, async (req, res) => {
 
  });
 
+ app.get("/healthz", (req, res) => {
+  res.status(200).send("OK");
+});
+
+
    
 //----server start
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () =>{
     console.log(`server is running on http://localhost:${PORT}`);
+});*/
+
+
+/* ---- IMAGE UPLOAD ---- */
+app.post("/api/upload", upload.single("image"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No Image Uploaded" });
+    }
+
+    const analysisResult = analyzeImage(req.file);
+
+    const report = new Report({
+      imageName: req.file.originalname,
+      imageSize: req.file.size,
+      imageType: req.file.mimetype,
+      imagePath: req.file.filename,
+      verdict: analysisResult.verdict,
+      confidence: analysisResult.confidence,
+      reasons: analysisResult.reasons,
+    });
+
+    await report.save();
+
+    res.json({
+      message: "Image analyzed and saved successfully",
+      result: analysisResult,
+    });
+  } catch (error) {
+    console.error("Detection Error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/* ---- ADMIN REPORTS ---- */
+app.get("/api/admin/reports", authAdmin, async (req, res) => {
+  try {
+    const reports = await Report.find().sort({ createdAt: -1 });
+    res.json(reports);
+  } catch (error) {
+    console.error("Fetch reports error:", error);
+    res.status(500).json({ message: "Failed to fetch reports" });
+  }
+});
+
+/* ---- HEALTH CHECK ---- */
+app.get("/healthz", (req, res) => {
+  res.status(200).send("OK");
+});
+
+/* =======================
+   SERVER START
+======================= */
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
 });
