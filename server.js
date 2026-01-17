@@ -59,27 +59,63 @@ const upload = multer({ storage });
 const analyzeImage = (file) => {
   let score = 0;
   let reasons = [];
-
+//rule:1 small size
   if (file.size < 150 * 1024) {
     score++;
-    reasons.push("Unusually small file size for the given image.");
+    reasons.push("Unusually small file size for the high-quality image.");
   }
 
-  if (file.mimetype === "image/webp") {
+  /*if (file.mimetype === "image/webp") {
     score++;
     reasons.push("Image format commonly used by AI tools");
-  }
+  }*/
 
+    //rule :2 AI common format
+  if (["image/webp", "image/avif"].includes(file.mimetype)) {
+    score++;
+    reasons.push("Image format frequently used by AI generators.");
+  }
+ // rule:3 generic filename
   if (file.originalname.length < 10) {
     score++;
-    reasons.push("Generic or short file name detected");
+    reasons.push("Auto-generated or Generic filename detected");
+  }
+    //rule:4 simulated logic
+    
+    if (!file.originalname.match(/\.(jpg|jpeg|png)$/i)) {
+    score++;
+    reasons.push("Missing typical camera metadata.");
   }
 
-  const confidence = Math.min(100, Math.round((score / 3) * 100));
+  /*const confidence = Math.min(100, Math.round((score / 3) * 100));
 
   return score >= 2
     ? { verdict: "Final Result: AI-Generated Image", confidence, reasons }
     : { verdict: "Final Result: Not AI-Generated Image", confidence: 100 - confidence, reasons };
+};*/
+
+/* ---- FINAL DECISION ---- */
+  if (score >= 3) {
+    return {
+      verdict: "AI-Generated Image",
+      confidence: 90,
+      reasons,
+    };
+  }
+
+  if (score === 2) {
+    return {
+      verdict: "Likely AI-Generated Image",
+      confidence: 70,
+      reasons,
+    };
+  }
+
+  return {
+    verdict: "Likely Real Image",
+    confidence: 95,
+    reasons,
+  };
 };
 
 /* =====================
