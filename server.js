@@ -65,11 +65,6 @@ const analyzeImage = (file) => {
     reasons.push("Unusually small file size for the high-quality image.");
   }
 
-  /*if (file.mimetype === "image/webp") {
-    score++;
-    reasons.push("Image format commonly used by AI tools");
-  }*/
-
     //rule :2 AI common format
   if (["image/webp", "image/avif"].includes(file.mimetype)) {
     score++;
@@ -86,13 +81,7 @@ const analyzeImage = (file) => {
     score++;
     reasons.push("Missing typical camera metadata.");
   }
-
-  /*const confidence = Math.min(100, Math.round((score / 3) * 100));
-
-  return score >= 2
-    ? { verdict: "Final Result: AI-Generated Image", confidence, reasons }
-    : { verdict: "Final Result: Not AI-Generated Image", confidence: 100 - confidence, reasons };
-};*/
+  
 
 /* ---- FINAL DECISION ---- */
   if (score >= 3) {
